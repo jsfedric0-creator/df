@@ -1,0 +1,57 @@
+name: iptv-xtream-system
+services:
+  - name: xtream-ui
+    image: hassanproject/xtreamui:latest
+    ports:
+      - port: 25500
+        http_path: /
+      - port: 25462
+      - port: 25461
+    env:
+      - name: DB_HOST
+        value: ep-morning-bonus-agnmzfev.c-2.eu-central-1.pg.koyeb.app
+      - name: DB_PORT
+        value: "5432"
+      - name: DB_NAME
+        value: koyebdb
+      - name: DB_USER
+        value: koyeb-adm
+      - name: DB_PASS
+        value: npg_7Pvs1uBSGgtK
+      - name: ADMIN_USER
+        value: admin
+      - name: ADMIN_PASS
+        value: Admin@123456
+    volumes:
+      - path: /home/xtreamcodes/iptv_xtream_codes
+      - path: /home/xtreamcodes/iptv_xtream_codes/logs
+      - path: /home/xtreamcodes/iptv_xtream_codes/backups
+
+  - name: nginx-rtmp
+    image: tiangolo/nginx-rtmp
+    ports:
+      - port: 80
+        http_path: /stat
+      - port: 1935
+        protocol: tcp
+      - port: 443
+    volumes:
+      - path: /opt/streams
+      - path: /etc/nginx/nginx.conf
+
+  - name: dashboard
+    image: php:8.1-apache
+    ports:
+      - port: 8088
+        http_path: /
+    env:
+      - name: DB_HOST
+        value: ep-morning-bonus-agnmzfev.c-2.eu-central-1.pg.koyeb.app
+      - name: DB_PORT
+        value: "5432"
+      - name: DB_NAME
+        value: koyebdb
+      - name: DB_USER
+        value: koyeb-adm
+      - name: DB_PASS
+        value: npg_7Pvs1uBSGgtK
