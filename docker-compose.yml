@@ -1,177 +1,64 @@
 version: '3.8'
 
 services:
-  # Xtream Codes UI
   xtream-ui:
-    image: hassanproject/xtreamui:latest
-    container_name: xtream_ui_koyeb
+    build: .
+    container_name: xtream_ui
     restart: unless-stopped
     ports:
       - "25500:25500"
       - "25462:25462"
       - "25461:25461"
-    environment:
-      # إعدادات قاعدة بيانات Koyeb PostgreSQL
-      DB_TYPE: pgsql
-      DB_HOST: ep-morning-bonus-agnmzfev.c-2.eu-central-1.pg.koyeb.app
-      DB_PORT: 5432
-      DB_NAME: koyebdb
-      DB_USER: koyeb-adm
-      DB_PASS: npg_7Pvs1uBSGgtK
-      
-      # إعدادات الخادم
-      SERVER_IP: ${SERVER_IP:-your_koyeb_app_url}
-      SERVER_PORT: 25500
-      ADMIN_USER: admin
-      ADMIN_PASS: ${ADMIN_PASSWORD:-Admin@123456}
-      
-      # إعدادات البريد
-      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASS: ${SMTP_PASS}
-      
-      # إعدادات أخرى
-      TIMEZONE: Africa/Casablanca
-      ENABLE_HTTPS: "true"
-      SSL_CERT: /ssl/cert.pem
-      SSL_KEY: /ssl/key.pem
-    volumes:
-      - ./xtream/data:/home/xtreamcodes/iptv_xtream_codes
-      - ./xtream/logs:/home/xtreamcodes/iptv_xtream_codes/logs
-      - ./xtream/tmp:/tmp
-      - ./xtream/backups:/home/xtreamcodes/iptv_xtream_codes/backups
-      - ./xtream/wwwdir:/home/xtreamcodes/iptv_xtream_codes/wwwdir
-      - ./ssl:/ssl
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:25500/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - iptv_network
-
-  # Nginx مع RTMP للمباشر والبروكسي
-  nginx-rtmp:
-    image: tiangolo/nginx-rtmp
-    container_name: nginx_rtmp_koyeb
-    restart: unless-stopped
-    ports:
       - "80:80"
       - "1935:1935"
-      - "443:443"
       - "8080:8080"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./nginx/rtmp.conf:/etc/nginx/rtmp.conf
-      - ./nginx/sites:/etc/nginx/sites-enabled
-      - ./streams:/opt/streams
-      - ./logs/nginx:/var/log/nginx
-      - ./ssl:/etc/nginx/ssl
+      - "8001:8001"
     environment:
-      - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx
-      - RTMP_STREAM_NAMES=live,mystream,restream
-    depends_on:
-      xtream-ui:
-        condition: service_healthy
-    networks:
-      - iptv_network
-
-  # وكيل البث (Stream Proxy)
-  stream-proxy:
-    image: nginx:alpine
-    container_name: stream_proxy_koyeb
-    restart: unless-stopped
-    ports:
-      - "8001:8001"  # HLS
-      - "8002:8002"  # MPEG-TS
-      - "8003:8003"  # DASH
-    volumes:
-      - ./proxy/nginx-proxy.conf:/etc/nginx/nginx.conf
-      - ./proxy/streams.conf:/etc/nginx/conf.d/streams.conf
-      - ./proxy/cache:/var/cache/nginx
-      - ./proxy/logs:/var/log/nginx
-    depends_on:
-      - nginx-rtmp
-    networks:
-      - iptv_network
-
-  # نظام الريسـتريم (Restream)
-  restreamer:
-    image: jrottenberg/ffmpeg:4.4-alpine
-    container_name: restreamer_koyeb
-    restart: unless-stopped
-    volumes:
-      - ./restream/config:/config
-      - ./restream/scripts:/scripts
-      - ./restream/logs:/var/log/restream
-    environment:
-      - AUTO_RESTART=true
-      - INPUT_URLS=${INPUT_STREAMS}
-      - OUTPUT_BASE=rtmp://nginx-rtmp:1935/live
-      - QUALITY_PRESET=ultrafast
-    depends_on:
-      - nginx-rtmp
-    networks:
-      - iptv_network
-    command: >
-      sh -c "
-      /scripts/start_restream.sh
-      "
-
-  # لوحة التحكم (Dashboard)
-  dashboard:
-    image: php:8.1-apache
-    container_name: iptv_dashboard_koyeb
-    restart: unless-stopped
-    ports:
-      - "8088:80"
-    volumes:
-      - ./dashboard:/var/www/html
-      - ./dashboard/config.php:/var/www/html/config.php
-      - ./dashboard/logs:/var/www/html/logs
-    environment:
+      # إعدادات قاعدة بيانات Koyeb PostgreSQL
       - DB_HOST=ep-morning-bonus-agnmzfev.c-2.eu-central-1.pg.koyeb.app
       - DB_PORT=5432
       - DB_NAME=koyebdb
       - DB_USER=koyeb-adm
       - DB_PASS=npg_7Pvs1uBSGgtK
-      - APP_ENV=production
-      - APP_KEY=${APP_KEY}
-    depends_on:
-      - xtream-ui
-    networks:
-      - iptv_network
-
-  # مراقبة النظام (Monitoring)
-  monitor:
-    image: alpine:latest
-    container_name: monitor_koyeb
-    restart: unless-stopped
+      - DB_TYPE=pgsql
+      
+      # إعدادات النظام
+      - SERVER_IP=${SERVER_IP:-localhost}
+      - ADMIN_USER=admin
+      - ADMIN_PASS=${ADMIN_PASS:-Admin@123456}
+      - TIMEZONE=Africa/Casablanca
+      
+      # إعدادات البريد
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      
+      # إعدادات أخرى
+      - PHP_MEMORY_LIMIT=512M
+      - PHP_MAX_EXECUTION_TIME=300
+      - UPLOAD_MAX_FILESIZE=100M
     volumes:
-      - ./monitor:/monitor
-      - ./logs:/var/log/iptv
-    environment:
-      - DB_CONNECTION=pgsql
-      - DB_HOST=ep-morning-bonus-agnmzfev.c-2.eu-central-1.pg.koyeb.app
-      - DB_PORT=5432
-      - DB_DATABASE=koyebdb
-      - DB_USERNAME=koyeb-adm
-      - DB_PASSWORD=npg_7Pvs1uBSGgtK
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - xtream_data:/home/xtreamcodes/iptv_xtream_codes
+      - xtream_logs:/home/xtreamcodes/iptv_xtream_codes/logs
+      - nginx_logs:/var/log/nginx
+      - php_logs:/var/log/php8.1-fpm
+      - streams_data:/opt/streams
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
-      - iptv_network
-    command: >
-      sh -c "
-      apk add --no-cache python3 py3-pip curl && \
-      pip3 install requests psycopg2-binary && \
-      python3 /monitor/monitor.py
-      "
+      - iptv-network
+
+volumes:
+  xtream_data:
+  xtream_logs:
+  nginx_logs:
+  php_logs:
+  streams_data:
 
 networks:
-  iptv_network:
+  iptv-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.22.0.0/24
